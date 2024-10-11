@@ -1,0 +1,102 @@
+---
+- name: Configurar o sistema no ambiente chroot
+  hosts: localhost
+  become: yes
+  vars_files:
+    - 99-vars.yaml
+  vars_prompt:
+    - name: user_password
+      prompt: "Digite a senha para o usuário '{{ USERNAME }}'"
+      private: yes
+  tasks:
+    - name: Definindo o hostname
+      copy:
+        dest: /etc/hostname
+        content: |
+          "{{ HOSTNAME }}"
+
+    - name: Configurar o fuso horário
+      file:
+        src: /usr/share/zoneinfo/{{ TIMEZONE }}
+        dest: /etc/localtime
+        state: link
+
+    - name: Modificar o /etc/rc.conf para usar o KEYMAP
+      lineinfile:
+        path: /etc/rc.conf
+        regexp: '^KEYMAP='
+        line: "KEYMAP={{ KEYMAP }}"
+
+    - name: Descomentar locale pt_BR.UTF-8 em /etc/default/libc-locales
+      replace:
+        path: /etc/default/libc-locales
+        regexp: '^#({{ LOCALE }})'
+        replace: '\1'
+
+    - name: Reconfigurar glibc-locales
+      command: xbps-reconfigure -f glibc-locales
+
+    - name: Adicionar o usuário "{{ USERNAME }}"
+      user:
+        name: "{{ USERNAME }}"
+        comment: "{{ USER_COMMENT }}"
+        shell: "{{ USER_SHELL }}"
+        groups: "{{ USER_GROUPS | join(',') }}"
+        password: "{{ user_password | password_hash('sha512') }}"
+        # create_home: yes
+
+    - name: Descomentar linha do sudoers para o grupo wheel
+      lineinfile:
+        path: /etc/sudoers
+        regexp: '^# %wheel ALL=(ALL) ALL'
+        line: '%wheel ALL=(ALL) ALL'
+
+    - name: Copiar /proc/mounts para /etc/fstab
+      copy:
+        remote_src: yes
+        src: /proc/mounts
+        dest: /etc/fstab
+
+    - name: Remover entradas desnecessárias de /etc/fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '^(devpts|tmpfs|proc|sysfs)'
+        state: absent
+
+    - name: Adicionar entrada tmpfs para /tmp no fstab
+      blockinfile:
+        path: /etc/fstab
+        block: |
+          tmpfs /tmp tmpfs defaults,nosuid,nodev 0 0
+
+    - name: Criar um swapfile de 6GB
+      command: |
+        fallocate -l {{ SWAPFILE_SIZE }} /swapfile && \
+        chmod 600 /swapfile && \
+        mkswap /swapfile
+
+    - name: Ativar o swapfile
+      command: swapon /swapfile
+
+    - name: Adicionar swapfile ao /etc/fstab
+      blockinfile:
+        path: /etc/fstab
+        block: |
+          /swapfile none swap sw 0 0
+
+    - name: Instalar pacotes adicionais
+      command: xbps-install -Sy {{ item }}
+      loop: "{{ PACKAGES }}"
+
+    - name: Habilitar serviços
+      command: ln -s /etc/sv/{{ item }} /var/service
+      loop: "{{ SERVICES }}"
+
+    - name: Instalar grub para EFI
+      command: xbps-install grub-x86_64-efi
+
+    - name: Configurar grub no sistema
+      command: grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id="Void"
+
+    - name: Reconfigurar todos os pacotes
+      command: xbps-reconfigure -fa

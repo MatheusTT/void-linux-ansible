@@ -1,0 +1,30 @@
+---
+- name: Instalação do Void Linux
+  hosts: localhost
+  become: yes
+  vars_files:
+    - 99-vars.yaml
+  tasks:
+    - name: Criar diretório para chaves do XBPS
+      file:
+        path: /mnt/var/db/xbps/keys
+        state: directory
+
+    - name: Copiar chaves XBPS para a partição montada
+      copy:
+        remote_src: yes
+        src: /var/db/xbps/keys/
+        dest: /mnt/var/db/xbps/keys/
+
+    - name: Instalar base-system e Ansible no sistema montado
+      command: XBPS_ARCH={{ ARCH }} xbps-install -S -r /mnt -R "{{ REPO }}" base-system ansible
+
+    - name: Copiar arquivos do playbook para /mnt
+      copy:
+        src: "{{ playbook_dir }}/"
+        dest: /mnt/root/ansible-setup/
+        remote_src: yes
+
+    - name: Executar o playbook 02-chroot.yaml no ambiente chroot usando xchroot
+      command: |
+        xchroot /mnt ansible-playbook /root/ansible-setup/02-chroot.yaml

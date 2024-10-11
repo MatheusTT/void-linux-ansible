@@ -1,0 +1,29 @@
+---
+- name: Finalizar instalacao do Void Linux
+  hosts: localhost
+  become: yes
+  vars_files:
+    - 99-vars.yaml 
+  tasks:
+    - name: Clonar o repositório xbps-src como usuário normal
+      become: no
+      ansible.builtin.git:
+        repo: "{{ void_packages_repo }}"
+        dest: "{{ void_packages_path }}"
+        clone: yes
+    
+    - name: Executar o setup do xbps-src como usuário normal
+      become: no
+      command: ./xbps-src binary-bootstrap
+      args:
+        chdir: "{{ void_packages_repo }}"
+
+    - name: Habilitando pacotes restritos
+      become: no
+      copy:
+        dest: "{{ void_packages_repo }}/etc/conf"
+        content: |
+          XBPS_ALLOW_RESTRICTED=yes
+
+    - name: Limpar pacotes desnecessarios
+      command: xbps-remove -Oo

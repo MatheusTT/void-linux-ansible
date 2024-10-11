@@ -1,0 +1,39 @@
+---
+REPO: "https://repo-fastly.voidlinux.org/current"
+ARCH: "x86_64"
+
+HOSTNAME: "void"
+LOCALE: "pt_BR.UTF-8"
+KEYMAP: "br-abnt2"
+TIMEZONE: "America/Sao_Paulo"
+USERNAME: "broa"
+USER_COMMENT: "Matheus"
+USER_SHELL: "/usr/bin/zsh"
+USER_GROUPS:
+  - wheel
+  - input
+  - audio
+  - video
+  - users
+
+SWAPFILE_SIZE: "6G"
+
+# Lista de pacotes adicionais para instalação
+PACKAGES:
+  - neovim
+  - git
+  - NetworkManager
+  - zsh
+  - ufw
+  - tlp
+  - sof-firmware
+
+# Serviços que devem ser habilitados
+SERVICES:
+  - NetworkManager
+  - ufw
+  - sshd
+  - tlp
+
+void_packages_repo: "https://github.com/void-linux/void-packages.git"
+void_packages_path: "/home/broa/.local/share/void-packages"
