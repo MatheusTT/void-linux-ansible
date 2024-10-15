@@ -17,7 +17,42 @@
         dest: /mnt/var/db/xbps/keys/
 
     - name: Instalar base-system e Ansible no sistema montado
-      command: XBPS_ARCH={{ ARCH }} xbps-install -S -r /mnt -R "{{ REPO }}" base-system ansible
+      command: xbps-install -S -r /mnt -R "{{ REPO }}" -y base-system ansible neovim 
+      environment:
+        XBPS_ARCH: "{{ ARCH }}"
+
+    - name: Definindo o hostname
+      copy:
+        dest: /mnt/etc/hostname
+        content: |
+          "{{ HOSTNAME }}"
+
+    - name: Configurar o fuso horário
+      file:
+        src: /mnt/usr/share/zoneinfo/{{ TIMEZONE }}
+        dest: /mnt/etc/localtime
+        state: link
+
+    - name: Modificar o /etc/rc.conf para usar o KEYMAP
+      lineinfile:
+        path: /etc/rc.conf
+        regexp: '^KEYMAP='
+        line: "KEYMAP={{ KEYMAP }}"
+
+    - name: Descomentar locale pt_BR.UTF-8 em /etc/default/libc-locales
+      replace:
+        path: /mnt/etc/default/libc-locales
+        regexp: '^#({{ LOCALE }})'
+        replace: '\1'
+
+    - name: Reconfigurar glibc-locales
+      command: xbps-reconfigure -f glibc-locales
+
+    - name: Descomentar linha do sudoers para o grupo wheel
+      lineinfile:
+        path: /mnt/etc/sudoers
+        regexp: '^# %wheel ALL=(ALL) ALL'
+        line: '%wheel ALL=(ALL) ALL'
 
     - name: Copiar arquivos do playbook para /mnt
       copy:
@@ -28,3 +63,5 @@
     - name: Executar o playbook 02-chroot.yaml no ambiente chroot usando xchroot
       command: |
         xchroot /mnt ansible-playbook /root/ansible-setup/02-chroot.yaml
+      environment:
+        LANG: "{{ LOCALE }}"

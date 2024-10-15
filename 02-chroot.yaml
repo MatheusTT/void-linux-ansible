@@ -9,33 +9,6 @@
       prompt: "Digite a senha para o usuário '{{ USERNAME }}'"
       private: yes
   tasks:
-    - name: Definindo o hostname
-      copy:
-        dest: /etc/hostname
-        content: |
-          "{{ HOSTNAME }}"
-
-    - name: Configurar o fuso horário
-      file:
-        src: /usr/share/zoneinfo/{{ TIMEZONE }}
-        dest: /etc/localtime
-        state: link
-
-    - name: Modificar o /etc/rc.conf para usar o KEYMAP
-      lineinfile:
-        path: /etc/rc.conf
-        regexp: '^KEYMAP='
-        line: "KEYMAP={{ KEYMAP }}"
-
-    - name: Descomentar locale pt_BR.UTF-8 em /etc/default/libc-locales
-      replace:
-        path: /etc/default/libc-locales
-        regexp: '^#({{ LOCALE }})'
-        replace: '\1'
-
-    - name: Reconfigurar glibc-locales
-      command: xbps-reconfigure -f glibc-locales
-
     - name: Adicionar o usuário "{{ USERNAME }}"
       user:
         name: "{{ USERNAME }}"
@@ -44,12 +17,6 @@
         groups: "{{ USER_GROUPS | join(',') }}"
         password: "{{ user_password | password_hash('sha512') }}"
         # create_home: yes
-
-    - name: Descomentar linha do sudoers para o grupo wheel
-      lineinfile:
-        path: /etc/sudoers
-        regexp: '^# %wheel ALL=(ALL) ALL'
-        line: '%wheel ALL=(ALL) ALL'
 
     - name: Copiar /proc/mounts para /etc/fstab
       copy:
