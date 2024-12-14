@@ -85,6 +85,11 @@
               repository=https://repo-fastly.voidlinux.org/current/multilib/nonfree
 
     # TODO: add openresolv
+    - name: Criar o diretório do cron
+      file:
+        path: /etc/cron.weekly
+        state: directory
+        mode: '0755'
 
     - name: Adicionar o cron job do fstrim
       copy:
