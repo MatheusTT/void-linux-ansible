@@ -8,6 +8,9 @@
     - name: user_password
       prompt: "Digite a senha para o usuário '{{ USERNAME }}'"
       private: yes
+    - name: add_swapfile
+      prompt: "Deseja criar uma swapfile? (y/N)"
+      private: no
   tasks:
     - name: Criar diretório para chaves do XBPS
       file:
@@ -114,6 +117,6 @@
 
     - name: Executar o playbook 02-chroot.yaml no ambiente chroot usando xchroot
       command: |
-        xchroot /mnt ansible-playbook /root/ansible-setup/02-chroot.yaml -e "user_password={{ user_password }}"
+        xchroot /mnt ansible-playbook /root/ansible-setup/02-chroot.yaml -e "user_password={{ user_password }}" -e "add_swapfile={{ add_swapfile }}"
       environment:
         LANG: "{{ LOCALE }}"

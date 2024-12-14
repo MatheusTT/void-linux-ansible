@@ -4,10 +4,6 @@
   become: yes
   vars_files:
     - 99-vars.yaml
-  vars_prompt:
-  - name: "add_swapfile"
-    prompt: "Deseja criar uma swapfile? (y/N)"
-    private: no
   tasks:
     - name: Adicionar o usuário "{{ USERNAME }}"
       user:
