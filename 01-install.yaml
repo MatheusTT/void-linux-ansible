@@ -4,6 +4,10 @@
   become: yes
   vars_files:
     - 99-vars.yaml
+  vars_prompt:
+    - name: user_password
+      prompt: "Digite a senha para o usuário '{{ USERNAME }}'"
+      private: yes
   tasks:
     - name: Criar diretório para chaves do XBPS
       file:
@@ -17,7 +21,7 @@
         dest: /mnt/var/db/xbps/keys/
 
     - name: Instalar base-system e Ansible no sistema montado
-      command: xbps-install -S -r /mnt -R "{{ REPO }}" -y base-system ansible neovim 
+      command: xbps-install -S -r /mnt -R "{{ REPO }}" -y base-system ansible python3-passlib grub-x86_64-efi neovim
       environment:
         XBPS_ARCH: "{{ ARCH }}"
 
@@ -46,13 +50,56 @@
         replace: '\1'
 
     - name: Reconfigurar glibc-locales
-      command: xbps-reconfigure -f glibc-locales
+      command: xchroot /mnt xbps-reconfigure -f glibc-locales
 
     - name: Descomentar linha do sudoers para o grupo wheel
       lineinfile:
         path: /mnt/etc/sudoers
         regexp: '^# %wheel ALL=(ALL) ALL'
         line: '%wheel ALL=(ALL) ALL'
+
+    - name: Mudando mirrors e adicionando repositórios
+      block:
+        - name: Atualizar o repositório principal para usar o mirror Fastly
+          copy:
+            dest: /etc/xbps.d/00-repository-main.conf
+            content: |
+              repository=https://repo-fastly.voidlinux.org/current
+
+        - name: Adicionando o repositório nonfree utilizando o mirror Fastly
+          copy:
+            dest: /etc/xbps.d/00-repository-nonfree.conf
+            content: |
+              repository=https://repo-fastly.voidlinux.org/current/nonfree
+
+        - name: Adicionar o repositório multilib utilizando o mirror Fastly
+          copy:
+            dest: /etc/xbps.d/00-repository-multilib.conf
+            content: |
+              repository=https://repo-fastly.voidlinux.org/current/multilib
+
+        - name: Adicionar o repositório multilib/nonfree utilizando o mirror Fastly
+          copy:
+            dest: /etc/xbps.d/00-repository-multilib-nonfree.conf
+            content: |
+              repository=https://repo-fastly.voidlinux.org/current/multilib/nonfree
+
+    # TODO: add openresolv
+
+    - name: Adicionar o cron job do fstrim
+      copy:
+        dest: /etc/cron.weekly/fstrim
+        content: |
+          #!/bin/sh
+
+          fstrim /
+      register: fstrim_script_created
+
+    - name: Mudar permissões do script do fstrim
+      file:
+        path: /etc/cron.weekly/fstrim
+        mode: u+x
+      when: fstrim_script_created is changed
 
     - name: Copiar arquivos do playbook para /mnt
       copy:
@@ -62,6 +109,6 @@
 
     - name: Executar o playbook 02-chroot.yaml no ambiente chroot usando xchroot
       command: |
-        xchroot /mnt ansible-playbook /root/ansible-setup/02-chroot.yaml
+        xchroot /mnt ansible-playbook /root/ansible-setup/02-chroot.yaml -e "user_password={{ user_password }}"
       environment:
         LANG: "{{ LOCALE }}"

@@ -5,9 +5,9 @@
   vars_files:
     - 99-vars.yaml
   vars_prompt:
-    - name: user_password
-      prompt: "Digite a senha para o usuário '{{ USERNAME }}'"
-      private: yes
+  - name: "add_swapfile"
+    prompt: "Deseja criar uma swapfile? (y/N)"
+    private: no
   tasks:
     - name: Adicionar o usuário "{{ USERNAME }}"
       user:
@@ -36,31 +36,36 @@
         block: |
           tmpfs /tmp tmpfs defaults,nosuid,nodev 0 0
 
-    - name: Criar um swapfile de 6GB
-      command: |
-        fallocate -l {{ SWAPFILE_SIZE }} /swapfile && \
-        chmod 600 /swapfile && \
-        mkswap /swapfile
+    - name: Criando uma swapfile
+      when: add_swapfile | lower == 'y'
+      block:
+        - name: Pré-alocando espaço para a swapfile
+          command: fallocate -l {{ SWAPFILE_SIZE }} /swapfile
 
-    - name: Ativar o swapfile
-      command: swapon /swapfile
+        - name: Mudando as permições
+          command: chmod 600 /swapfile
 
-    - name: Adicionar swapfile ao /etc/fstab
-      blockinfile:
-        path: /etc/fstab
-        block: |
-          /swapfile none swap sw 0 0
+        - name: Setando uma area de swap
+          command: mkswap /swapfile
+
+        - name: Ativando a swap
+          command: swapon /swapfile
+
+        - name: Adicionando a swap ao /etc/fstab
+          blockinfile:
+            path: /etc/fstab
+            block: |
+              /swapfile none swap sw 0 0
+
+        # TODO: add hibernation
 
     - name: Instalar pacotes adicionais
       command: xbps-install -Sy {{ item }}
       loop: "{{ PACKAGES }}"
 
     - name: Habilitar serviços
-      command: ln -s /etc/sv/{{ item }} /var/service
+      command: ln -s /etc/sv/{{ item }} /etc/runit/runsvdir/default/
       loop: "{{ SERVICES }}"
-
-    - name: Instalar grub para EFI
-      command: xbps-install grub-x86_64-efi
 
     - name: Configurar grub no sistema
       command: grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id="Void"
